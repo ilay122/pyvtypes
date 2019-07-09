@@ -3,6 +3,7 @@ import pyvtypes.obj_utils
 
 import windows
 import sys
+import pdb
 
 
 class win_10_test_modification(obj.ProfileModification):
@@ -55,13 +56,23 @@ class my_address_space(pyvtypes.obj_utils.BaseAddressSpace):
 
 
 def main():
+	# pdb.set_trace()
 	proc = windows.winobject.process.WinProcess(pid=int(sys.argv[1]))
 	
 	
+	import dummy
+	# dummy.x is a python dict; 
+	addrspace = pyvtypes.obj_utils.get_vm_for_params(64, dummy.x, read_function=proc.read_memory)
 	
-	# addrspace = pyvtypes.obj_utils.get_vm_for_params(64, 'win7_sp0_x64_vtypes', read_function=proc.read_memory)
-	my_addrspace = my_address_space(int(sys.argv[1]))
-	addrspace = pyvtypes.obj_utils.get_vm_for_profile_and_addrspace(Win10x64_15063, my_addrspace)
+	
+	# `win7_sp0_x64_vtypes` is imported
+	addrspace = pyvtypes.obj_utils.get_vm_for_params(64, 'win7_sp0_x64_vtypes', read_function=proc.read_memory)
+	
+	
+	# my_addrspace = my_address_space(int(sys.argv[1]))
+	
+	# like a normal address space from volatility; _md_vtype_module is used for importing the types
+	# addrspace = pyvtypes.obj_utils.get_vm_for_profile_and_addrspace(Win10x64_15063, my_addrspace)
 	
 	print addrspace
 	peb = obj.Object("_PEB", offset=proc.peb_addr, vm=addrspace)

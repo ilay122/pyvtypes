@@ -47,6 +47,24 @@ Curry = functools.partial
 
 import traceback
 
+def freeze(o):
+  if isinstance(o,dict):
+    return frozenset({ k:freeze(v) for k,v in o.items()}.items())
+
+  if isinstance(o,list):
+    return tuple([freeze(v) for v in o])
+
+  return o
+
+
+def make_hash(o):
+    """
+    makes a hash out of anything that contains only list,dict and hashable types including string and numeric types
+    """
+    return hash(freeze(o))  
+
+
+
 class classproperty(property):
 	def __get__(self, cls, owner):
 		# We don't think pylint knows what it's talking about here
@@ -857,6 +875,7 @@ class Profile(object):
 
 		# Set up the "input" data
 		self.vtypes = {}
+		self.enums = {}
 
 		# Carry out the inital setup
 		# self.reset()
@@ -905,14 +924,35 @@ class Profile(object):
 			debug.warning("No vtypes specified for this profile")
 		else:
 			if type(vtype_module) == dict:
-				self.vtypes.update(vtype_module)
-			else:
-				# module = sys.modules.get(vtype_module, None)
-				module = __import__(vtype_module)
-				# Try to locate the _types dictionary
-				for i in dir(module):
-					if i.endswith('_types'):
-						self.vtypes.update(getattr(module, i))
+				class my_dummy_class:
+					pass
+				my_dummy = my_dummy_class()
+				setattr(my_dummy, "dummy_types", vtype_module)
+				vtype_module = "dummy_import" + str(make_hash(vtype_module))
+				sys.modules[vtype_module] = my_dummy
+
+			# module = sys.modules.get(vtype_module, None)
+			module = __import__(vtype_module)
+			# Try to locate the _types dictionary
+			for i in dir(module):
+				if i.endswith('_types'):
+					types_dict = getattr(module, i)
+					if types_dict.get("$METADATA", None): # probably Rekall vtypes; 
+						self.vtypes.update(types_dict["$STRUCTS"])
+						self.add_enums(types_dict["$ENUMS"])
+					else:
+						self.vtypes.update(types_dict)
+		
+	
+	def add_enums(self, kwargs):
+		"""Add the kwargs as an enum for this profile. FROM REKALL"""
+		# Alas JSON converts integer keys to strings.
+		for k in kwargs.keys():
+			v = kwargs[k]
+			self.enums[k] = enum_definition = {}
+			for enum in v.keys():
+				name = v[enum]
+				enum_definition[enum] = name
 
 	def load_modifications(self):
 		""" Find all subclasses of the modification type and applies them
@@ -1237,6 +1277,7 @@ class Profile(object):
 			We return an object that is a CType or has been overridden by object_classes. 
 		"""
 		size, raw_members = self.vtypes.get(cname)
+
 		members = {}
 		for k, v in raw_members.items():
 			if callable(v):
