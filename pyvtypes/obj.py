@@ -33,7 +33,12 @@ if __name__ == '__main__':
 	sys.path.append(".")
 	sys.path.append("..")
 
-import cPickle as pickle # pickle implementation must match that in volatility.cache
+try:
+	import cPickle as pickle # pickle implementation must match that in volatility.cache
+except:
+	# python3
+	import pickle
+	
 import struct, copy, operator
 import debug
 import fmtspec
@@ -760,7 +765,7 @@ class CType(BaseObject):
 
 		try:
 			result = cls(offset = offset, vm = self.obj_vm, parent = self, name = attr, native_vm = self.obj_native_vm)
-		except InvalidOffsetError, e:
+		except InvalidOffsetError as e:
 			return NoneObject(str(e))
 
 		return result
@@ -1197,7 +1202,7 @@ class Profile(object):
 			if type(kwargs) == dict:
 				## We have a list of the form [ ClassName, dict(.. args ..) ]
 				return Curry(Object, theType = typeList[0], name = name, **kwargs)
-		except (TypeError, IndexError), _e:
+		except (TypeError, IndexError) as _e:
 			pass
 
 		## This is of the form [ 'void' ]
